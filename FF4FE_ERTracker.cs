@@ -137,8 +137,8 @@ namespace FF4FE_ERTracker
         public int    DestMap;
         public int    DestPlane;
         public int    FramesWaited;
-        public const int NameWindow = 120;
-        public const int Timeout    = 300;
+        public const int NameWindow = 300;  // frames after trans-end to accept a banner
+        public const int Timeout    = 600;  // frames before giving up entirely
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -258,10 +258,18 @@ namespace FF4FE_ERTracker
         private readonly Dictionary<int, string>        _nameCache   = new Dictionary<int, string>();
         private readonly HashSet<string>                _knownPairs  = new HashSet<string>(StringComparer.Ordinal);
 
-        // Entrances that have multiple copies on the map and should never be deduped
+        // Entrances with multiple OW tiles — each tile is a distinct entrance,
+        // so dedup uses coord+name rather than name alone.
         private static readonly HashSet<string> MultiEntrance = new HashSet<string>(StringComparer.Ordinal)
         {
-            "Lunar Path", "Chocobo's Forest", "Misty Cave",
+            "Lunar Path",       // 4 moon tiles
+            "Misty Cave North", // separate N/S tiles kept distinct
+            "Misty Cave South",
+            "Baron",            // multiple castle/town adjacent tiles
+            "Town of Baron",
+            "Mysidia",
+            "Toroian Castle",
+            "Town of Toroia",
         };
         private ConnectionPanel _panel;
         private Label           _statusLabel;
@@ -306,6 +314,12 @@ namespace FF4FE_ERTracker
             bool inBat  = Rd(A_IN_BATTLE) == 1;
             bool nameOn = Rd(A_NAME_SHOW) != 0;
 
+            // onOW is only true for overworld (plane 0). UW and Moon surfaces
+            // also have onOW=true in FF4 — but just in case, treat any non-interior
+            // state as a surface: if the player is not in battle and plane matches
+            // a surface plane, we treat it as "on surface".
+            bool onAnySurface = onOW; // keep using the hardware flag as primary
+
             // First frame
             if (!_init)
             {
@@ -315,8 +329,8 @@ namespace FF4FE_ERTracker
                 UpdateStatus("Tracking…");
             }
 
-            // Track OW position
-            if (onOW && !trans)
+            // Track surface position (all planes)
+            if (onAnySurface && !trans)
             {
                 _surfX = x; _surfY = y; _surfPlane = plane;
             }
@@ -348,7 +362,7 @@ namespace FF4FE_ERTracker
 
                 if (_onOW)
                 {
-                    // Walking into an entrance from the world map — this is what we track
+                    // Walking into an entrance from any surface — this is what we track
                     string name = EntranceTable.Lookup(PlaneStr(_surfPlane), _surfX, _surfY);
                     _fromLabel = name ?? $"{PlaneStr(_surfPlane)}({_surfX},{_surfY})";
                     _fromCoord = $"{PlaneStr(_surfPlane)}({_surfX},{_surfY})";
@@ -388,7 +402,10 @@ namespace FF4FE_ERTracker
                     FramesWaited = 0,
                 };
 
-                // Resolve immediately if we already have a name
+                // Try to resolve immediately in priority order:
+                // 1. Name banner already on screen
+                // 2. Previously cached name for this map
+                // 3. Leave pending — banner will fire within NameWindow frames
                 if (nameOn)
                 {
                     string n = FF4Encoding.ReadNameBanner(Rd, A_NAME_TEXT);
@@ -398,6 +415,8 @@ namespace FF4FE_ERTracker
                 {
                     ResolvePending(cached);
                 }
+                // If neither, ResolvePending will be called when the banner fires
+                // or after Timeout frames (which uses Map_XX fallback)
 
                 _fromLabel = null; _fromCoord = null;
             }
