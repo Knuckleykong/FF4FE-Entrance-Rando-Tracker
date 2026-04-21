@@ -12,7 +12,7 @@
       Point this at your BizHawk installation to resolve the references
       without installing NuGet packages.
     -->
-    <BizHawkPath Condition="'$(BizHawkPath)' == ''">C:\Users\gstanke\Desktop\Bizhawk</BizHawkPath>
+    <BizHawkPath Condition="'$(BizHawkPath)' == ''">'PathToBizhawk'</BizHawkPath>
   </PropertyGroup>
 
   <!--
@@ -22,11 +22,11 @@
   -->
   <ItemGroup>
     <Reference Include="BizHawk.Client.Common">
-      <HintPath>C:\Users\gstanke\Desktop\Bizhawk\dll\BizHawk.Client.Common.dll</HintPath>
+      <HintPath>'PathToBizhawk'\dll\BizHawk.Client.Common.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="BizHawk.Client.EmuHawk">
-      <HintPath>C:\Users\gstanke\Desktop\Bizhawk\EmuHawk.exe</HintPath>
+      <HintPath>'PathToBizhawk'\EmuHawk.exe</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="System.Windows.Forms" />
