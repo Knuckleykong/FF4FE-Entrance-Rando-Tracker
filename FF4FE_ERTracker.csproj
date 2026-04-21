@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>FF4FE_ERTracker</AssemblyName>
+    <RootNamespace>FF4FE_ERTracker</RootNamespace>
+    <OutputType>Library</OutputType>
+    <Nullable>disable</Nullable>
+    <LangVersion>9</LangVersion>
+    <!--
+      BizHawk drops the .dll into its ExternalTools folder.
+      Point this at your BizHawk installation to resolve the references
+      without installing NuGet packages.
+    -->
+    <BizHawkPath Condition="'$(BizHawkPath)' == ''">C:\Users\gstanke\Desktop\Bizhawk</BizHawkPath>
+  </PropertyGroup>
+
+  <!--
+    Reference BizHawk assemblies from your local install.
+    Adjust <BizHawkPath> above or override on the CLI:
+      dotnet build -p:BizHawkPath="D:\Games\BizHawk"
+  -->
+  <ItemGroup>
+    <Reference Include="BizHawk.Client.Common">
+      <HintPath>C:\Users\gstanke\Desktop\Bizhawk\dll\BizHawk.Client.Common.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BizHawk.Client.EmuHawk">
+      <HintPath>C:\Users\gstanke\Desktop\Bizhawk\EmuHawk.exe</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System" />
+  </ItemGroup>
+
+</Project>
