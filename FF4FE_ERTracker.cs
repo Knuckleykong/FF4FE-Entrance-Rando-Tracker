@@ -52,6 +52,7 @@ namespace FF4FE_ERTracker
             { "OW(36,84)",    "Town of Toroia"       },
             { "OW(41,53)",    "Chocobo's Village"    },
             { "OW(45,236)",   "Eblan"                },
+            { "OW(46,236)",   "Eblan"                },
             { "OW(74,53)",    "Cave Magnes"          },
             { "OW(76,132)",   "Misty Cave South"     },
             { "OW(84,119)",   "Misty Cave North"     },
@@ -62,11 +63,15 @@ namespace FF4FE_ERTracker
 
             // ── Underworld ───────────────────────────────────────────────────
             { "UW(100,82)",   "Castle of Dwarves"    },
+            { "UW(99,82)",    "Castle of Dwarves"    },
             { "UW(104,123)",  "Kokkol the Smith's"   },
             { "UW(13,14)",    "Sylvan Cave"          },
             { "UW(27,86)",    "Land of Monsters"     },
             { "UW(46,109)",   "Sealed Cave"          },
             { "UW(48,16)",    "Tower of Bab-il"      },
+            { "UW(49,16)",    "Tower of Bab-il"      },
+            { "UW(49,15)",    "Tower of Bab-il"      },
+            { "UW(48,15)",    "Tower of Bab-il"      },
             { "UW(62,121)",   "Tomra"                },
             { "UW(91,83)",    "Dwarf Base"           },
 
@@ -133,7 +138,6 @@ namespace FF4FE_ERTracker
     internal class Pending
     {
         public string FromLabel;
-        public string FromCoord;  // raw "OW(x,y)" for dedup of multi-entrance locations
         public int    DestMap;
         public int    DestPlane;
         public int    FramesWaited;
@@ -248,7 +252,6 @@ namespace FF4FE_ERTracker
 
         // Latched at transition START — the entrance we stepped into
         private string _fromLabel;   // null means no active transition to record
-        private string _fromCoord;   // raw "OW(x,y)" for multi-entrance dedup
         private bool   _fromOnOW;
 
         private Pending _pending;
@@ -258,19 +261,6 @@ namespace FF4FE_ERTracker
         private readonly Dictionary<int, string>        _nameCache   = new Dictionary<int, string>();
         private readonly HashSet<string>                _knownPairs  = new HashSet<string>(StringComparer.Ordinal);
 
-        // Entrances with multiple OW tiles — each tile is a distinct entrance,
-        // so dedup uses coord+name rather than name alone.
-        private static readonly HashSet<string> MultiEntrance = new HashSet<string>(StringComparer.Ordinal)
-        {
-            "Lunar Path",       // 4 moon tiles
-            "Misty Cave North", // separate N/S tiles kept distinct
-            "Misty Cave South",
-            "Baron",            // multiple castle/town adjacent tiles
-            "Town of Baron",
-            "Mysidia",
-            "Toroian Castle",
-            "Town of Toroia",
-        };
         private ConnectionPanel _panel;
         private Label           _statusLabel;
         private Label           _countLabel;
@@ -365,14 +355,12 @@ namespace FF4FE_ERTracker
                     // Walking into an entrance from any surface — this is what we track
                     string name = EntranceTable.Lookup(PlaneStr(_surfPlane), _surfX, _surfY);
                     _fromLabel = name ?? $"{PlaneStr(_surfPlane)}({_surfX},{_surfY})";
-                    _fromCoord = $"{PlaneStr(_surfPlane)}({_surfX},{_surfY})";
                     _fromOnOW  = true;
                 }
                 else
                 {
                     // Interior → anywhere: this is an exit — do not record
                     _fromLabel = null;
-                    _fromCoord = null;
                     _fromOnOW  = false;
                 }
             }
@@ -383,20 +371,19 @@ namespace FF4FE_ERTracker
                 // OW → OW (airship) — skip
                 if (_fromOnOW && onOW)
                 {
-                    _fromLabel = null; _fromCoord = null; goto Done;
+                    _fromLabel = null; goto Done;
                 }
 
                 // Arriving at transit map — skip
                 if (_transitMaps.Contains(mapId))
                 {
-                    _fromLabel = null; _fromCoord = null; goto Done;
+                    _fromLabel = null; goto Done;
                 }
 
                 // Create pending record, wait for name banner
                 _pending = new Pending
                 {
                     FromLabel    = _fromLabel,
-                    FromCoord    = _fromCoord,
                     DestMap      = mapId,
                     DestPlane    = plane,
                     FramesWaited = 0,
@@ -418,7 +405,7 @@ namespace FF4FE_ERTracker
                 // If neither, ResolvePending will be called when the banner fires
                 // or after Timeout frames (which uses Map_XX fallback)
 
-                _fromLabel = null; _fromCoord = null;
+                _fromLabel = null;
             }
 
             Done:
@@ -453,13 +440,9 @@ namespace FF4FE_ERTracker
             if (planes.Count >= 2) { _transitMaps.Add(p.DestMap); return; }
             if (_transitMaps.Contains(p.DestMap)) return;
 
-            // Deduplicate: key is "from|to" normally.
-            // For multi-entrance locations (several OW tiles with the same name),
-            // include the raw coord so each physical entrance is tracked separately.
-            string dedupFrom = MultiEntrance.Contains(p.FromLabel)
-                ? p.FromLabel + "@" + p.FromCoord
-                : p.FromLabel;
-            string key = dedupFrom + "|" + to;
+            // Deduplicate: same named entrance → same destination only records once,
+            // regardless of which OW tile was used to enter.
+            string key = p.FromLabel + "|" + to;
             if (!_knownPairs.Add(key)) return;
 
             // Add to display
